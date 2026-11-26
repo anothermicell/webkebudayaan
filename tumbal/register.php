@@ -1,5 +1,59 @@
 <?php
-include_once("config.php");
+session_start();
+require 'config.php';
+$db = new Database();
+
+// Jika sudah login, arahkan sesuai role
+if (isset($_SESSION['user_id'], $_SESSION['role'])) {
+    if ($_SESSION['role'] === 'admin') {
+        header("Location: admin/dashboard.php");
+        exit;
+    }
+    if ($_SESSION['role'] === 'user') {
+        header("Location: user/dashboard.php");
+        exit;
+    }
+}
+
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $namaLengkap = trim($_POST['nama_lengkap'] ?? '');
+    $username    = trim($_POST['username'] ?? '');
+    $email       = trim($_POST['email'] ?? '');
+    $password    = $_POST['password'] ?? '';
+
+    if ($username === '' || $password === '') {
+        $error = "Username dan password wajib diisi!";
+    } elseif ($db->countWhere('users', ['username' => $username]) > 0) {
+        $error = "Username sudah terdaftar!";
+    } else {
+        $dataInsert = [
+            'username' => $username,
+            'password' => password_hash($password, PASSWORD_DEFAULT),
+            'role'     => 'user'
+        ];
+
+        // Aktifkan dua baris di bawah ini jika tabel `users` memiliki kolom `nama_lengkap` dan `email`
+        // if ($namaLengkap !== '') { $dataInsert['nama_lengkap'] = $namaLengkap; }
+        // if ($email !== '') { $dataInsert['email'] = $email; }
+
+        $berhasil = $db->insert('users', $dataInsert);
+
+        if ($berhasil) {
+            $newUser = $db->get('users', ['username' => $username]);
+            session_regenerate_id(true);
+            $_SESSION['user_id']  = $newUser['id'] ?? null;
+            $_SESSION['username'] = $username;
+            $_SESSION['role']     = 'user';
+
+            header("Location: user/dashboard.php");
+            exit;
+        } else {
+            $error = "Registrasi gagal. Silakan coba lagi.";
+        }
+    }
+}
 ?>
 
 <!doctype html>

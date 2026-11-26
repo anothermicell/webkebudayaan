@@ -1,5 +1,54 @@
 <?php
-include_once("config.php");
+session_start();
+require 'config.php';
+$db = new Database();
+
+// Jika sudah login, langsung arahkan ke dashboard sesuai role
+if (isset($_SESSION['user_id'], $_SESSION['role'])) {
+    if ($_SESSION['role'] === 'admin') {
+        header("Location: admin/dashboard.php");
+        exit;
+    }
+    if ($_SESSION['role'] === 'user') {
+        header("Location: user/dashboard.php");
+        exit;
+    }
+}
+
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = trim($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
+
+    if ($username === '' || $password === '') {
+        $error = "Username dan password wajib diisi!";
+    } else {
+        $user = $db->get('users', ['username' => $username]);
+
+        if ($user && password_verify($password, $user['password'])) {
+            $role = strtolower(trim($user['role'] ?? ''));
+
+            if ($role === 'admin' || $role === 'user') {
+                session_regenerate_id(true);
+                $_SESSION['user_id']  = $user['id'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['role']     = $role;
+
+                if ($role === 'admin') {
+                    header("Location: admin/dashboard.php");
+                } else {
+                    header("Location: user/dashboard.php");
+                }
+                exit;
+            }
+
+            $error = "Role akun tidak valid!";
+        } else {
+            $error = "Username atau password salah!";
+        }
+    }
+}
 ?>
 
 <!doctype html>
